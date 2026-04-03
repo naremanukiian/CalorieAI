@@ -3,81 +3,116 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>CalorieAI — Know What You Eat</title>
+<title>iCal — Track Calories & Macros with AI</title>
 <link rel="stylesheet" href="style.css"/>
 <style>
-.hero{padding:48px 24px 28px;display:flex;flex-direction:column;gap:18px}
-.app-icon{width:82px;height:82px;background:var(--grad);border-radius:22px;display:flex;align-items:center;justify-content:center;font-size:2.5rem;box-shadow:var(--sh-acc);margin-bottom:4px}
-.hero h1{font-size:2.75rem;line-height:1.08;letter-spacing:-.03em}
-.hero-sub{font-size:1.02rem;line-height:1.65;color:var(--txt2)}
-.stats{display:flex;gap:10px;padding:0 20px}
-.stat{flex:1;padding:18px 12px;text-align:center}
-.stat-n{font-family:var(--font-d);font-size:1.65rem;font-weight:800;display:block;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.stat-l{font-size:.72rem;color:var(--txt3);display:block;margin-top:2px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
-.features{padding:0 20px;display:flex;flex-direction:column;gap:10px}
+.hero{padding:52px 24px 32px}
+.badge{display:inline-flex;align-items:center;gap:8px;background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.2);border-radius:99px;padding:6px 14px;font-size:.75rem;color:var(--gold);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:22px}
+.hero h1{font-size:2.9rem;line-height:1.05;letter-spacing:-.04em;margin-bottom:14px}
+.hero p{font-size:1rem;color:var(--txt2);line-height:1.7;margin-bottom:28px}
+.hero-btns{display:flex;flex-direction:column;gap:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 20px}
+.stat{padding:18px 12px;text-align:center}
+.stat-n{font-family:var(--font-d);font-size:1.5rem;font-weight:700;color:var(--gold);display:block}
+.stat-l{font-size:.68rem;color:var(--txt2);display:block;margin-top:4px;letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.features{padding:0 20px;margin-top:20px;display:flex;flex-direction:column;gap:10px}
 .feat{display:flex;align-items:center;gap:16px;padding:18px 20px}
-.fi{width:50px;height:50px;border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0}
-.fi-b{background:rgba(79,142,247,.12)}.fi-g{background:rgba(52,199,89,.12)}.fi-p{background:rgba(124,92,247,.12)}.fi-o{background:rgba(255,149,0,.12)}
-.feat h4{font-size:.92rem;margin-bottom:3px}
+.fi{width:50px;height:50px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
+.fi-a{background:rgba(245,200,66,.1)} .fi-b{background:rgba(96,165,250,.1)}
+.fi-c{background:rgba(74,222,128,.1)} .fi-d{background:rgba(129,140,248,.1)}
+.fi-e{background:rgba(244,114,182,.1)}
+.feat h4{font-family:var(--font-d);font-size:.92rem;font-weight:600;margin-bottom:3px}
 .feat p{font-size:.8rem;line-height:1.45;margin:0}
-.cta{padding:20px 20px 36px;display:flex;flex-direction:column;gap:11px}
-.foot-note{text-align:center;font-size:.76rem;color:var(--txt3);padding:0 24px}
-.nav-actions{display:flex;gap:8px;align-items:center}
+.macro-preview{margin:20px 20px 0;padding:22px}
+.mp-title{font-family:var(--font-d);font-size:.85rem;font-weight:700;color:var(--txt2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+.mp-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mp-label{display:flex;align-items:center;gap:8px;font-size:.84rem;font-weight:600}
+.mp-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.mp-bar-wrap{flex:1;margin:0 12px;height:6px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.mp-bar{height:100%;border-radius:99px}
+.mp-val{font-size:.8rem;color:var(--txt2);font-weight:600;min-width:36px;text-align:right}
+.cta{padding:20px 20px 36px;display:flex;flex-direction:column;gap:10px}
+.foot{text-align:center;font-size:.74rem;color:var(--txt3);padding:0 24px;margin-bottom:24px}
 </style>
 </head>
 <body>
-<div class="bg-mesh"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
 <div id="toast"></div>
 <div class="app">
 
   <nav class="nav fu">
-    <span class="logo">CalorieAI</span>
-    <div class="nav-actions">
-      <a href="login.html" class="btn btn-ghost" style="font-size:.84rem;padding:9px 14px">Login</a>
+    <span class="logo">iCal</span>
+    <div class="nav-btns">
+      <a href="login.html" class="btn btn-outline" style="padding:9px 18px;font-size:.84rem">Login</a>
     </div>
   </nav>
 
   <section class="hero">
-    <div class="app-icon fu">🍎</div>
-    <h1 class="fu d1">Know <span class="tg">exactly</span><br>what you eat</h1>
-    <p class="hero-sub fu d2">Snap a photo of any meal. Our AI instantly identifies every food item and calculates the exact calories — no manual logging ever again.</p>
+    <div class="badge fu">⚡ GPT-4o Vision + 60k Food Database</div>
+    <h1 class="fu d1">Track calories<br>&amp; <span class="tg">macros</span><br>with a photo</h1>
+    <p class="fu d2">Snap any meal. iCal identifies every food item, calculates exact calories, carbs, fat and protein in seconds.</p>
+    <div class="hero-btns fu d3">
+      <a href="register.html" class="btn btn-gold btn-full btn-lg">Get Started Free →</a>
+      <a href="login.html"    class="btn btn-outline btn-full">Sign in to my account</a>
+    </div>
   </section>
 
-  <div class="stats fu d2">
-    <div class="card stat"><span class="stat-n">60k+</span><span class="stat-l">Foods in DB</span></div>
-    <div class="card stat"><span class="stat-n">2s</span><span class="stat-l">Analysis</span></div>
-    <div class="card stat"><span class="stat-n">GPT-4o</span><span class="stat-l">AI Engine</span></div>
+  <div class="stats fu d3">
+    <div class="card stat"><span class="stat-n">60k+</span><span class="stat-l">Foods</span></div>
+    <div class="card stat"><span class="stat-n">4</span><span class="stat-l">Macros</span></div>
+    <div class="card stat"><span class="stat-n">&lt;3s</span><span class="stat-l">Analysis</span></div>
   </div>
 
-  <section class="features mt20">
-    <div class="card feat fu d2">
-      <div class="fi fi-b">📸</div>
-      <div><h4>Instant Food Detection</h4><p>AI scans your plate and identifies every item at once</p></div>
+  <!-- Macro preview -->
+  <div class="card macro-preview fu d4">
+    <p class="mp-title">Example Meal Breakdown</p>
+    <div class="mp-row">
+      <span class="mp-label"><span class="mp-dot" style="background:var(--carbs)"></span>Carbs</span>
+      <div class="mp-bar-wrap"><div class="mp-bar" style="background:var(--carbs);width:72%"></div></div>
+      <span class="mp-val">44g</span>
     </div>
-    <div class="card feat fu d3">
-      <div class="fi fi-g">🔥</div>
-      <div><h4>Real Calorie Database</h4><p>60,000 foods with accurate per-serving calorie data</p></div>
+    <div class="mp-row">
+      <span class="mp-label"><span class="mp-dot" style="background:var(--fat)"></span>Fat</span>
+      <div class="mp-bar-wrap"><div class="mp-bar" style="background:var(--fat);width:28%"></div></div>
+      <span class="mp-val">14g</span>
     </div>
-    <div class="card feat fu d4">
-      <div class="fi fi-p">📊</div>
-      <div><h4>Meal History</h4><p>Every meal saved — track patterns and daily totals</p></div>
+    <div class="mp-row" style="margin-bottom:0">
+      <span class="mp-label"><span class="mp-dot" style="background:var(--protein)"></span>Protein</span>
+      <div class="mp-bar-wrap"><div class="mp-bar" style="background:var(--protein);width:55%"></div></div>
+      <span class="mp-val">31g</span>
     </div>
-    <div class="card feat fu d5">
-      <div class="fi fi-o">🎯</div>
-      <div><h4>Personal Goals</h4><p>Set lose / maintain / gain targets and stay on track</p></div>
+  </div>
+
+  <section class="features fu d4">
+    <div class="card feat">
+      <div class="fi fi-a">📸</div>
+      <div><h4>Photo Recognition</h4><p>GPT-4o identifies every item on your plate instantly</p></div>
+    </div>
+    <div class="card feat">
+      <div class="fi fi-b">🔥</div>
+      <div><h4>Calorie Tracking</h4><p>Accurate calories from a 60,000-item food database</p></div>
+    </div>
+    <div class="card feat">
+      <div class="fi fi-c">📊</div>
+      <div><h4>Full Macro Breakdown</h4><p>Carbs, fat and protein for every food item logged</p></div>
+    </div>
+    <div class="card feat">
+      <div class="fi fi-d">🍽️</div>
+      <div><h4>Meal Sections</h4><p>Breakfast, lunch, dinner and snacks tracked separately</p></div>
+    </div>
+    <div class="card feat">
+      <div class="fi fi-e">🎯</div>
+      <div><h4>Daily Goals</h4><p>Set calorie targets, track progress with visual ring</p></div>
     </div>
   </section>
 
   <section class="cta mt8">
-    <a href="register.html" class="btn btn-primary btn-full btn-lg fu">Get Started — It's Free</a>
-    <a href="login.html"    class="btn btn-secondary btn-full fu d1">I already have an account</a>
+    <a href="register.html" class="btn btn-gold btn-full btn-lg fu">Start Tracking Free →</a>
   </section>
-
-  <p class="foot-note mb24">No credit card · Private & secure · Works on any meal 🌍</p>
+  <p class="foot">No credit card · Works on any meal · Private &amp; secure 🌍</p>
 </div>
 <script src="script.js"></script>
-<script>
-  if (localStorage.getItem('token')) window.location.href = 'dashboard.html';
-</script>
+<script>if(localStorage.getItem('token'))window.location.href='dashboard.html';</script>
 </body>
 </html>

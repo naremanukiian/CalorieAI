@@ -1,15 +1,15 @@
 """
-main.py  —  CalorieAI FastAPI Backend
+main.py — iCal FastAPI Backend
 Run: uvicorn main:app --reload --port 8000
 """
 
 import os
-from datetime import date, timezone
+from datetime import date
 from typing import List
 
 import psycopg2.extras
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -17,337 +17,248 @@ from analyzer import analyze_food_image
 from auth import create_token, get_current_user, hash_password, verify_password
 from database import get_db, init_db
 from models import (
-    AnalyzeResponse,
-    FoodItem,
-    FoodLogItem,
-    HistoryResponse,
-    LoginRequest,
-    MealSessionOut,
-    RegisterRequest,
-    TokenResponse,
-    UserProfile,
+    AnalyzeResponse, FoodItem, FoodLogItem,
+    HistoryResponse, LoginRequest, MealSessionOut,
+    RegisterRequest, TokenResponse, UserProfile,
 )
 
 load_dotenv()
 
-# ── App ────────────────────────────────────────────────────────────────────────
+app = FastAPI(title="iCal API", version="1.0.0",
+              description="AI food calorie & macro tracker")
 
-app = FastAPI(
-    title="CalorieAI API",
-    version="2.0.0",
-    description="AI-powered food calorie tracker using GPT-4o Vision + 60k food database",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],          # tighten to your domain in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"],
+                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
 @app.on_event("startup")
-async def on_startup():
+async def startup():
     init_db()
-    print("🚀  CalorieAI API is live at http://localhost:8000")
-    print("📖  Swagger docs:  http://localhost:8000/docs")
+    print("🚀  iCal API is live at http://localhost:8000")
+    print("📖  Docs: http://localhost:8000/docs")
 
 
-# ── Utility ────────────────────────────────────────────────────────────────────
+# ── Health ─────────────────────────────────────────
 
-def _row_to_dict(row) -> dict:
-    """Convert a psycopg2 RealDictRow (or tuple) to a plain dict."""
-    if hasattr(row, "keys"):
-        return dict(row)
-    return row
-
-
-# ── Health ─────────────────────────────────────────────────────────────────────
-
-@app.get("/", tags=["health"])
+@app.get("/")
 def root():
-    return {"status": "ok", "service": "CalorieAI", "version": "2.0.0"}
+    return {"status": "ok", "service": "iCal API", "version": "1.0.0"}
 
-
-@app.get("/health", tags=["health"])
+@app.get("/health")
 def health():
-    # quick DB ping
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
         return {"status": "healthy", "db": "connected"}
     except Exception as e:
-        return JSONResponse(status_code=503, content={"status": "unhealthy", "error": str(e)})
+        return JSONResponse(503, {"status": "unhealthy", "error": str(e)})
 
 
-# ── Auth ───────────────────────────────────────────────────────────────────────
+# ── Auth ───────────────────────────────────────────
 
-@app.post("/register", response_model=TokenResponse, status_code=201, tags=["auth"])
+@app.post("/register", response_model=TokenResponse, status_code=201)
 def register(body: RegisterRequest):
-    """Create a new user account."""
     with get_db() as conn:
         with conn.cursor() as cur:
-            # Check duplicate email
             cur.execute("SELECT id FROM users WHERE email = %s", (body.email,))
             if cur.fetchone():
-                raise HTTPException(
-                    status_code=409,
-                    detail="An account with this email already exists. Please log in.",
-                )
-
+                raise HTTPException(409, "An account with this email already exists.")
             hashed = hash_password(body.password)
             cur.execute(
-                """
-                INSERT INTO users (email, password_hash, weight, goal)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id
-                """,
-                (body.email, hashed, body.weight, body.goal),
+                "INSERT INTO users (email,password_hash,weight,goal,calorie_goal) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+                (body.email, hashed, body.weight, body.goal, body.calorie_goal or 2000)
             )
             user_id = cur.fetchone()[0]
-
     token = create_token(user_id, body.email)
-    return TokenResponse(token=token, user_id=user_id, email=body.email)
+    return TokenResponse(token=token, user_id=user_id, email=body.email, calorie_goal=body.calorie_goal or 2000)
 
 
-@app.post("/login", response_model=TokenResponse, tags=["auth"])
+@app.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest):
-    """Authenticate and receive a JWT."""
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, email, password_hash FROM users WHERE email = %s",
-                (body.email,),
-            )
+            cur.execute("SELECT id,email,password_hash,calorie_goal FROM users WHERE email = %s", (body.email,))
             row = cur.fetchone()
-
     if not row or not verify_password(body.password, row[2]):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect email or password.",
-        )
-
+        raise HTTPException(401, "Incorrect email or password.")
     token = create_token(row[0], row[1])
-    return TokenResponse(token=token, user_id=row[0], email=row[1])
+    return TokenResponse(token=token, user_id=row[0], email=row[1], calorie_goal=row[3] or 2000)
 
 
-@app.get("/me", response_model=UserProfile, tags=["auth"])
+@app.get("/me", response_model=UserProfile)
 def get_me(current_user: dict = Depends(get_current_user)):
-    """Return the current user's profile."""
     user_id = int(current_user["sub"])
     with get_db() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT id, email, weight, goal, created_at FROM users WHERE id = %s",
-                (user_id,),
-            )
-            user = cur.fetchone()
-    if not user:
+            cur.execute("SELECT id,email,weight,goal,calorie_goal,created_at FROM users WHERE id=%s", (user_id,))
+            u = cur.fetchone()
+    if not u:
         raise HTTPException(404, "User not found.")
-    return UserProfile(
-        id=user["id"],
-        email=user["email"],
-        weight=float(user["weight"]) if user["weight"] else None,
-        goal=user["goal"],
-        created_at=user["created_at"].isoformat(),
-    )
+    return UserProfile(id=u["id"], email=u["email"],
+                       weight=float(u["weight"]) if u["weight"] else None,
+                       goal=u["goal"], calorie_goal=u["calorie_goal"] or 2000,
+                       created_at=u["created_at"].isoformat())
 
 
-# ── Food Analysis ──────────────────────────────────────────────────────────────
+# ── Analyze ────────────────────────────────────────
 
-ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic"}
-MAX_SIZE_MB   = 10
+ALLOWED = {"image/jpeg","image/png","image/webp","image/heic","image/gif"}
 
-
-@app.post("/analyze", response_model=AnalyzeResponse, tags=["food"])
+@app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(
-    image: UploadFile = File(...),
+    image:     UploadFile = File(...),
+    meal_type: str = "other",
     current_user: dict = Depends(get_current_user),
 ):
-    """
-    Upload a food photo → GPT-4o detects foods → database enriches calories.
-    Saves the result to the user's meal history.
-    """
-    # Validate content type
     ct = (image.content_type or "").lower()
-    if ct not in ALLOWED_TYPES:
-        raise HTTPException(
-            status_code=415,
-            detail=f"Unsupported file type '{ct}'. Please upload a JPEG, PNG, or WebP image.",
-        )
+    if ct not in ALLOWED:
+        raise HTTPException(415, f"Unsupported file type '{ct}'. Please upload JPEG, PNG or WebP.")
 
-    # Read file
     image_bytes = await image.read()
     if not image_bytes:
-        raise HTTPException(400, "Empty file. Please upload a valid image.")
-    if len(image_bytes) > MAX_SIZE_MB * 1024 * 1024:
-        raise HTTPException(413, f"Image too large. Maximum allowed size is {MAX_SIZE_MB} MB.")
+        raise HTTPException(400, "Empty file.")
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(413, "Image too large. Max 10 MB.")
 
-    # Run AI analysis
     try:
         foods = await analyze_food_image(image_bytes, ct or "image/jpeg")
     except Exception as e:
-        raise HTTPException(500, f"Food analysis failed: {str(e)}")
+        raise HTTPException(500, f"Analysis failed: {str(e)}")
 
     if not foods:
-        raise HTTPException(422, "No food items could be detected in this image. Please try a clearer photo.")
+        raise HTTPException(422, "No food items detected. Please try a clearer photo.")
 
-    total_kcal  = sum(f["kcal"] for f in foods)
-    food_summary = ", ".join(f["name"] for f in foods)
-    user_id     = int(current_user["sub"])
+    total_kcal    = sum(f["kcal"]    for f in foods)
+    total_carbs   = round(sum(f["carbs"]   for f in foods), 1)
+    total_fat     = round(sum(f["fat"]     for f in foods), 1)
+    total_protein = round(sum(f["protein"] for f in foods), 1)
+    food_summary  = ", ".join(f["name"] for f in foods)
+    user_id       = int(current_user["sub"])
 
-    # Persist to database
+    valid_types = {"breakfast","lunch","dinner","snacks","other"}
+    if meal_type not in valid_types:
+        meal_type = "other"
+
     with get_db() as conn:
         with conn.cursor() as cur:
-            # Create meal session
             cur.execute(
-                """
-                INSERT INTO meal_sessions (user_id, total_calories, food_summary)
-                VALUES (%s, %s, %s)
-                RETURNING id
-                """,
-                (user_id, total_kcal, food_summary),
+                """INSERT INTO meal_sessions
+                   (user_id,meal_type,total_calories,total_carbs,total_fat,total_protein,food_summary)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                (user_id, meal_type, total_kcal, total_carbs, total_fat, total_protein, food_summary)
             )
             session_id = cur.fetchone()[0]
-
-            # Insert individual food log entries
             for f in foods:
                 cur.execute(
-                    """
-                    INSERT INTO food_logs (user_id, session_id, food_name, calories, serving)
-                    VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (user_id, session_id, f["name"], f["kcal"], f.get("serving")),
+                    """INSERT INTO food_logs
+                       (user_id,session_id,food_name,calories,carbs,fat,protein,serving)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (user_id, session_id, f["name"], f["kcal"],
+                     f["carbs"], f["fat"], f["protein"], f.get("serving"))
                 )
 
     return AnalyzeResponse(
-        foods=[
-            FoodItem(name=f["name"], kcal=f["kcal"], serving=f.get("serving"))
-            for f in foods
-        ],
-        total_kcal=total_kcal,
+        foods=[FoodItem(name=f["name"], kcal=f["kcal"], carbs=f["carbs"],
+                        fat=f["fat"], protein=f["protein"], serving=f.get("serving"))
+               for f in foods],
+        total_kcal=total_kcal, total_carbs=total_carbs,
+        total_fat=total_fat, total_protein=total_protein,
         session_id=session_id,
     )
 
 
-# ── History ────────────────────────────────────────────────────────────────────
+# ── History ────────────────────────────────────────
 
-@app.get("/history", response_model=HistoryResponse, tags=["food"])
-def get_history(
-    limit: int = 20,
-    current_user: dict = Depends(get_current_user),
-):
-    """Return the user's meal history (most recent first)."""
+@app.get("/history", response_model=HistoryResponse)
+def get_history(limit: int = 30, current_user: dict = Depends(get_current_user)):
     user_id = int(current_user["sub"])
 
     with get_db() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Fetch recent meal sessions
             cur.execute(
-                """
-                SELECT id, total_calories, food_summary, created_at
-                FROM   meal_sessions
-                WHERE  user_id = %s
-                ORDER  BY created_at DESC
-                LIMIT  %s
-                """,
-                (user_id, limit),
+                """SELECT id,meal_type,total_calories,total_carbs,total_fat,total_protein,food_summary,created_at
+                   FROM meal_sessions WHERE user_id=%s ORDER BY created_at DESC LIMIT %s""",
+                (user_id, limit)
             )
             sessions = [dict(r) for r in cur.fetchall()]
 
             if not sessions:
-                return HistoryResponse(sessions=[], total_kcal_today=0)
+                return HistoryResponse(sessions=[], total_kcal_today=0,
+                                       total_carbs_today=0, total_fat_today=0, total_protein_today=0)
 
-            session_ids = [s["id"] for s in sessions]
-
-            # Fetch food log items for those sessions
+            sids = [s["id"] for s in sessions]
             cur.execute(
-                """
-                SELECT id, session_id, food_name, calories, serving, created_at
-                FROM   food_logs
-                WHERE  session_id = ANY(%s)
-                ORDER  BY created_at ASC
-                """,
-                (session_ids,),
+                """SELECT id,session_id,food_name,calories,carbs,fat,protein,serving,created_at
+                   FROM food_logs WHERE session_id=ANY(%s) ORDER BY created_at ASC""",
+                (sids,)
             )
             logs = [dict(r) for r in cur.fetchall()]
 
-            # Calculate today's total calories
-            today_str = date.today().isoformat()
+            today = date.today().isoformat()
             cur.execute(
-                """
-                SELECT COALESCE(SUM(total_calories), 0)
-                FROM   meal_sessions
-                WHERE  user_id = %s
-                  AND  created_at::date = %s
-                """,
-                (user_id, today_str),
+                """SELECT COALESCE(SUM(total_calories),0),COALESCE(SUM(total_carbs),0),
+                          COALESCE(SUM(total_fat),0),COALESCE(SUM(total_protein),0)
+                   FROM meal_sessions WHERE user_id=%s AND created_at::date=%s""",
+                (user_id, today)
             )
-            total_kcal_today = int(cur.fetchone()["coalesce"])
+            row = cur.fetchone()
+            total_kcal_today    = int(row["coalesce"])
+            totals = list(row.values())
+            total_kcal_today    = int(totals[0])
+            total_carbs_today   = float(totals[1])
+            total_fat_today     = float(totals[2])
+            total_protein_today = float(totals[3])
 
-    # Group logs by session
-    logs_by_session: dict = {}
+    logs_by_session = {}
     for log in logs:
         sid = log["session_id"]
-        if sid not in logs_by_session:
-            logs_by_session[sid] = []
-        logs_by_session[sid].append(log)
+        logs_by_session.setdefault(sid, []).append(log)
 
-    session_out: List[MealSessionOut] = []
+    out = []
     for s in sessions:
         items = [
-            FoodLogItem(
-                id=lg["id"],
-                food_name=lg["food_name"],
-                calories=lg["calories"],
-                serving=lg.get("serving"),
-                created_at=lg["created_at"].isoformat(),
-            )
+            FoodLogItem(id=lg["id"], food_name=lg["food_name"],
+                        calories=lg["calories"], carbs=float(lg["carbs"]),
+                        fat=float(lg["fat"]), protein=float(lg["protein"]),
+                        serving=lg.get("serving"),
+                        created_at=lg["created_at"].isoformat())
             for lg in logs_by_session.get(s["id"], [])
         ]
-        session_out.append(
-            MealSessionOut(
-                id=s["id"],
-                total_calories=s["total_calories"],
-                food_summary=s["food_summary"],
-                created_at=s["created_at"].isoformat(),
-                items=items,
-            )
-        )
+        out.append(MealSessionOut(
+            id=s["id"], meal_type=s["meal_type"] or "other",
+            total_calories=s["total_calories"],
+            total_carbs=float(s["total_carbs"]),
+            total_fat=float(s["total_fat"]),
+            total_protein=float(s["total_protein"]),
+            food_summary=s["food_summary"],
+            created_at=s["created_at"].isoformat(),
+            items=items,
+        ))
 
-    return HistoryResponse(sessions=session_out, total_kcal_today=total_kcal_today)
+    return HistoryResponse(sessions=out,
+                           total_kcal_today=total_kcal_today,
+                           total_carbs_today=total_carbs_today,
+                           total_fat_today=total_fat_today,
+                           total_protein_today=total_protein_today)
 
 
-@app.delete("/history/{session_id}", tags=["food"])
-def delete_session(
-    session_id: int,
-    current_user: dict = Depends(get_current_user),
-):
-    """Delete a specific meal session from history."""
+@app.delete("/history/{session_id}")
+def delete_session(session_id: int, current_user: dict = Depends(get_current_user)):
     user_id = int(current_user["sub"])
     with get_db() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM meal_sessions WHERE id = %s AND user_id = %s RETURNING id",
-                (session_id, user_id),
-            )
+            cur.execute("DELETE FROM meal_sessions WHERE id=%s AND user_id=%s RETURNING id",
+                        (session_id, user_id))
             if not cur.fetchone():
-                raise HTTPException(404, "Meal session not found.")
-    return {"message": "Deleted successfully."}
+                raise HTTPException(404, "Session not found.")
+    return {"message": "Deleted."}
 
-
-# ── Global error handlers ──────────────────────────────────────────────────────
 
 @app.exception_handler(404)
-async def not_found_handler(request, exc):
-    return JSONResponse(status_code=404, content={"detail": "Endpoint not found."})
-
+async def not_found(req, exc):
+    return JSONResponse(404, {"detail": "Not found."})
 
 @app.exception_handler(500)
-async def server_error_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "An unexpected server error occurred. Please try again."},
-    )
+async def server_error(req, exc):
+    return JSONResponse(500, {"detail": "Server error. Please try again."})
