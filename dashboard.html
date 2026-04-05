@@ -247,6 +247,21 @@
         </div>
       </div>
 
+
+      <!-- AI Suggestion CTA -->
+      <a href="suggest.html" style="text-decoration:none" class="fu d2b">
+        <div style="background:linear-gradient(135deg,rgba(167,139,250,.12),rgba(109,40,217,.06));border:1px solid rgba(167,139,250,.3);border-radius:var(--r2);padding:18px 20px;display:flex;align-items:center;gap:16px;cursor:pointer">
+          <div style="width:46px;height:46px;border-radius:50%;background:rgba(167,139,250,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--purple)" style="width:22px;height:22px;stroke-width:2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-family:var(--font-d);font-size:.95rem;font-weight:700;color:var(--purple)">✨ AI Meal Suggestions</div>
+            <div style="font-size:.76rem;color:var(--txt2);margin-top:2px">Get a personalized meal idea from Claude AI</div>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--txt3)" style="width:18px;height:18px;stroke-width:2;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </a>
+
       <!-- Meals -->
       <div class="meals-section fu d3">
         <h3 class="section-lbl" style="margin-bottom:4px">Today's Meals</h3>
@@ -428,6 +443,22 @@
   <div class="page" id="page-settings">
     <div class="topbar fu"><div><p class="greeting">App</p><h1 class="uname">Settings</h1></div></div>
     <div class="content">
+      
+      <div class="settings-section fu d1b" style="margin-top:-8px">
+        <p class="settings-title">AI Features</p>
+        <a href="suggest.html" style="text-decoration:none">
+          <div class="settings-item" style="border-color:rgba(167,139,250,.25);background:rgba(167,139,250,.04)">
+            <div class="settings-item-left">
+              <div class="settings-icon" style="background:rgba(167,139,250,.15);color:var(--purple)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <div><span class="settings-label" style="color:var(--purple)">AI Meal Ideas</span><span class="settings-sub">Get personalized meal suggestions</span></div>
+            </div>
+            <div class="settings-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:18px;height:18px;stroke-width:2"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </a>
+      </div>
+
       <div class="settings-section fu d1">
         <p class="settings-title">Account</p>
         <div class="settings-item" id="s-profile"><div class="settings-item-left"><div class="settings-icon" style="background:rgba(245,200,66,.1);color:var(--gold)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div><span class="settings-label">My Profile</span><span class="settings-sub" id="s-email-display">—</span></div></div><div class="settings-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:18px;height:18px;stroke-width:2"><polyline points="9 18 15 12 9 6"/></svg></div></div>

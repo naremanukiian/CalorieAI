@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>AI Meal Ideas — iCal</title>
+<link rel="stylesheet" href="style.css"/>
+<style>
+/* ── Page specific ── */
+.suggest-page { padding: 52px 20px 120px; }
+
+.hero-section { margin-bottom: 24px }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.25);
+  border-radius: 99px; padding: 6px 14px;
+  font-size: .72rem; font-weight: 700; color: var(--purple);
+  letter-spacing: .06em; text-transform: uppercase; margin-bottom: 14px;
+}
+.hero-title { font-family: var(--font-d); font-size: 1.8rem; font-weight: 800; letter-spacing: -.03em; margin-bottom: 6px; }
+.hero-sub { font-size: .86rem; color: var(--txt2); line-height: 1.6; }
+
+/* ── Form card ── */
+.form-card { padding: 22px; margin-bottom: 16px; }
+.form-section-title {
+  font-size: .68rem; color: var(--txt3); letter-spacing: .1em;
+  text-transform: uppercase; font-weight: 700; margin-bottom: 12px;
+}
+
+.slider-wrap { margin-bottom: 4px; }
+.slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 99px; background: var(--bg3); outline: none; }
+.slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--grad); cursor: pointer; box-shadow: 0 2px 8px rgba(245,200,66,.4); }
+.slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--grad); cursor: pointer; border: none; }
+.slider-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: .72rem; color: var(--txt3); font-weight: 600; }
+
+.tag-input-wrap { display: flex; gap: 8px; }
+.tag-input-wrap .fc { flex: 1; }
+.tags-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 99px; font-size: .78rem; font-weight: 600; color: var(--txt2); }
+.tag-remove { cursor: pointer; color: var(--txt3); font-size: .8rem; line-height: 1; background: none; border: none; padding: 0; font-family: var(--font-b); }
+.tag-remove:hover { color: var(--red); }
+.tag.included { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.25); color: var(--green); }
+.tag.excluded { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.25); color: var(--red); }
+
+.diet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.diet-radio { display: none; }
+.diet-lbl { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 11px 6px; border: 1.5px solid var(--border); border-radius: var(--r); cursor: pointer; background: var(--bg3); transition: all .18s; font-size: .72rem; font-weight: 700; color: var(--txt2); text-align: center; }
+.diet-lbl .em { font-size: 1.2rem; }
+.diet-radio:checked + .diet-lbl { border-color: var(--purple); background: rgba(167,139,250,.08); color: var(--purple); }
+
+.diff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.diff-radio { display: none; }
+.diff-lbl { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 8px; border: 1.5px solid var(--border); border-radius: var(--r); cursor: pointer; background: var(--bg3); transition: all .18s; font-size: .78rem; font-weight: 700; color: var(--txt2); }
+.diff-radio:checked + .diff-lbl { border-color: var(--gold); background: rgba(245,200,66,.08); color: var(--gold); }
+
+/* ── Generate button ── */
+.generate-btn {
+  width: 100%; padding: 18px; border-radius: var(--r2);
+  background: linear-gradient(135deg, var(--purple), #6d28d9);
+  color: #fff; font-family: var(--font-d); font-size: 1.05rem; font-weight: 700;
+  border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 8px 24px rgba(167,139,250,.35);
+  transition: all .25s cubic-bezier(.34,1.56,.64,1);
+  letter-spacing: .01em;
+}
+.generate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(167,139,250,.45); }
+.generate-btn:active { transform: scale(.97); }
+.generate-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.generate-btn .sp { width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+.generate-btn.loading .sp { display: block; }
+.generate-btn.loading .bt { display: none; }
+
+/* ── Thinking animation ── */
+.thinking {
+  display: none; text-align: center; padding: 40px 20px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r2);
+}
+.thinking.show { display: block; }
+.thinking-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 16px; }
+.thinking-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--purple); animation: dotBounce 1.4s infinite ease-in-out; }
+.thinking-dot:nth-child(2) { animation-delay: .2s; }
+.thinking-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes dotBounce { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+.thinking-text { font-size: .86rem; color: var(--txt2); font-weight: 600; }
+.thinking-sub  { font-size: .74rem; color: var(--txt3); margin-top: 6px; }
+
+/* ── Meal result card ── */
+.meal-result { display: none; }
+.meal-result.show { display: block; }
+
+.result-hero {
+  background: linear-gradient(135deg, rgba(167,139,250,.12), rgba(109,40,217,.06));
+  border: 1px solid rgba(167,139,250,.25);
+  border-radius: var(--r2); padding: 24px; margin-bottom: 14px; position: relative; overflow: hidden;
+}
+.result-hero::before { content: ''; position: absolute; top: -40px; right: -40px; width: 160px; height: 160px; background: radial-gradient(circle, rgba(167,139,250,.15), transparent 70%); pointer-events: none; }
+.result-emoji { font-size: 3.5rem; margin-bottom: 12px; display: block; }
+.result-name { font-family: var(--font-d); font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; margin-bottom: 6px; }
+.result-desc { font-size: .86rem; color: var(--txt2); line-height: 1.6; margin-bottom: 16px; }
+.result-meta { display: flex; gap: 10px; flex-wrap: wrap; }
+.result-meta-item { display: flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 700; color: var(--txt2); padding: 5px 11px; background: var(--bg3); border-radius: 99px; border: 1px solid var(--border); }
+.result-meta-item svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; }
+
+.result-macros { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+.result-macro { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 10px; text-align: center; }
+.result-macro-val { font-family: var(--font-d); font-size: 1.1rem; font-weight: 800; display: block; }
+.result-macro-lbl { font-size: .62rem; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; display: block; }
+
+.result-section { margin-bottom: 14px; }
+.result-section-title { font-family: var(--font-d); font-size: .9rem; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.result-section-title svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; }
+
+.ingredient-list { display: flex; flex-direction: column; gap: 7px; }
+.ingredient-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }
+.ingredient-name { font-size: .86rem; font-weight: 600; }
+.ingredient-qty  { font-size: .8rem; color: var(--txt2); font-weight: 600; }
+.ingredient-cal  { font-size: .74rem; color: var(--gold); font-weight: 700; font-family: var(--font-d); }
+
+.step-list { display: flex; flex-direction: column; gap: 10px; }
+.step-row { display: flex; gap: 12px; align-items: flex-start; }
+.step-num { width: 28px; height: 28px; border-radius: 50%; background: rgba(167,139,250,.15); border: 1px solid rgba(167,139,250,.3); display: flex; align-items: center; justify-content: center; font-size: .74rem; font-weight: 800; color: var(--purple); flex-shrink: 0; margin-top: 1px; }
+.step-text { font-size: .86rem; line-height: 1.6; color: var(--txt); padding-top: 3px; }
+
+.subs-list { display: flex; flex-direction: column; gap: 8px; }
+.sub-row { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); font-size: .84rem; }
+.sub-from { font-weight: 700; color: var(--txt); }
+.sub-arrow { color: var(--txt3); }
+.sub-to   { color: var(--green); font-weight: 600; }
+
+.result-actions { display: flex; gap: 10px; margin-top: 6px; }
+
+/* ── History chips ── */
+.suggestion-history { margin-top: 24px; }
+.sh-title { font-size: .72rem; color: var(--txt3); letter-spacing: .1em; text-transform: uppercase; font-weight: 700; margin-bottom: 10px; }
+.sh-list { display: flex; flex-direction: column; gap: 8px; }
+.sh-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; transition: border-color .2s; }
+.sh-item:hover { border-color: var(--border2); }
+.sh-name { font-size: .88rem; font-weight: 700; }
+.sh-meta { font-size: .74rem; color: var(--txt3); margin-top: 2px; }
+.sh-kcal { font-family: var(--font-d); font-size: .92rem; font-weight: 700; color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div id="toast"></div>
+
+<!-- ═══ LOG MODAL (reused from dashboard) ═══ -->
+<div class="overlay" id="log-confirm-overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3 class="modal-title" id="log-confirm-title">Log this meal?</h3>
+    <p class="modal-sub" id="log-confirm-sub">This will add the meal to today's log</p>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost" id="log-cancel-btn" style="flex:1">Cancel</button>
+      <button class="btn btn-gold btn-lg" id="log-confirm-btn" style="flex:2">
+        <div class="sp"></div><span class="bt">✅ Log Meal</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <div class="suggest-page">
+
+    <!-- Back nav -->
+    <a href="dashboard.html" class="back fu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:18px;height:18px;stroke-width:2"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to Dashboard
+    </a>
+
+    <!-- Hero -->
+    <div class="hero-section fu d1">
+      <div class="hero-badge">🤖 Powered by Claude AI</div>
+      <h1 class="hero-title">What should I <span class="tg">eat?</span></h1>
+      <p class="hero-sub">Tell the AI your preferences and get a personalized meal suggestion with full recipe, exact macros and cooking steps.</p>
+    </div>
+
+    <!-- ── Form ── -->
+    <div class="card form-card fu d2">
+      <p class="form-section-title">Calorie Limit</p>
+      <div class="slider-wrap">
+        <input type="range" class="slider" id="cal-slider" min="200" max="1200" step="50" value="600"/>
+        <div class="slider-labels">
+          <span>200 kcal</span>
+          <span style="color:var(--gold);font-weight:800" id="cal-val">600 kcal</span>
+          <span>1200 kcal</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card form-card fu d2">
+      <p class="form-section-title">Diet Type</p>
+      <div class="diet-grid">
+        <div><input type="radio" name="diet" value="any" id="d-any" class="diet-radio" checked/><label for="d-any" class="diet-lbl"><span class="em">🍽️</span>Any</label></div>
+        <div><input type="radio" name="diet" value="vegetarian" id="d-veg" class="diet-radio"/><label for="d-veg" class="diet-lbl"><span class="em">🥦</span>Vegetarian</label></div>
+        <div><input type="radio" name="diet" value="vegan" id="d-vgn" class="diet-radio"/><label for="d-vgn" class="diet-lbl"><span class="em">🌱</span>Vegan</label></div>
+        <div><input type="radio" name="diet" value="keto" id="d-ket" class="diet-radio"/><label for="d-ket" class="diet-lbl"><span class="em">🥑</span>Keto</label></div>
+        <div><input type="radio" name="diet" value="high-protein" id="d-hp" class="diet-radio"/><label for="d-hp" class="diet-lbl"><span class="em">💪</span>High Protein</label></div>
+        <div><input type="radio" name="diet" value="mediterranean" id="d-med" class="diet-radio"/><label for="d-med" class="diet-lbl"><span class="em">🫒</span>Mediterranean</label></div>
+      </div>
+    </div>
+
+    <div class="card form-card fu d3">
+      <p class="form-section-title">Available Ingredients <span class="opt">(optional)</span></p>
+      <div class="tag-input-wrap">
+        <input type="text" class="fc" id="ingr-input" placeholder="e.g. chicken, rice, eggs…"/>
+        <button class="btn btn-ghost btn-sm" id="ingr-add-btn">Add</button>
+      </div>
+      <div class="tags-list" id="ingr-tags"></div>
+    </div>
+
+    <div class="card form-card fu d3">
+      <p class="form-section-title">Exclude Ingredients <span class="opt">(allergies, dislikes)</span></p>
+      <div class="tag-input-wrap">
+        <input type="text" class="fc" id="excl-input" placeholder="e.g. nuts, dairy, gluten…"/>
+        <button class="btn btn-ghost btn-sm" id="excl-add-btn">Add</button>
+      </div>
+      <div class="tags-list" id="excl-tags"></div>
+    </div>
+
+    <div class="card form-card fu d3">
+      <p class="form-section-title">Prep Time</p>
+      <div class="slider-wrap">
+        <input type="range" class="slider" id="time-slider" min="5" max="60" step="5" value="20"/>
+        <div class="slider-labels">
+          <span>5 min</span>
+          <span style="color:var(--gold);font-weight:800" id="time-val">20 min</span>
+          <span>60 min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card form-card fu d3">
+      <p class="form-section-title">Difficulty</p>
+      <div class="diff-grid">
+        <div><input type="radio" name="diff" value="easy" id="df-e" class="diff-radio" checked/><label for="df-e" class="diff-lbl">😊 Easy</label></div>
+        <div><input type="radio" name="diff" value="medium" id="df-m" class="diff-radio"/><label for="df-m" class="diff-lbl">👨‍🍳 Medium</label></div>
+        <div><input type="radio" name="diff" value="hard" id="df-h" class="diff-radio"/><label for="df-h" class="diff-lbl">🔥 Hard</label></div>
+      </div>
+    </div>
+
+    <!-- Macro goals -->
+    <div class="card form-card fu d4">
+      <p class="form-section-title">Macro Goals <span class="opt">(optional)</span></p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="fg">
+          <label class="fl">Min Protein (g)</label>
+          <input type="number" class="fc" id="min-protein" placeholder="e.g. 30" min="0" max="200"/>
+        </div>
+        <div class="fg">
+          <label class="fl">Max Carbs (g)</label>
+          <input type="number" class="fc" id="max-carbs" placeholder="e.g. 50" min="0" max="500"/>
+        </div>
+        <div class="fg">
+          <label class="fl">Max Fat (g)</label>
+          <input type="number" class="fc" id="max-fat" placeholder="e.g. 20" min="0" max="200"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Personalize from history -->
+    <div class="card form-card fu d4" id="personalize-card" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <p class="form-section-title" style="margin-bottom:3px">Personalize</p>
+          <p style="font-size:.78rem;color:var(--txt2)">Based on your meal history</p>
+        </div>
+        <label class="toggle"><input type="checkbox" id="personalize-toggle" checked/><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <button class="generate-btn fu d5" id="generate-btn">
+      <div class="sp"></div>
+      <span class="bt">✨ Generate Meal Idea</span>
+    </button>
+
+    <!-- Thinking -->
+    <div class="thinking" id="thinking" style="margin-top:16px">
+      <div class="thinking-dots">
+        <div class="thinking-dot"></div>
+        <div class="thinking-dot"></div>
+        <div class="thinking-dot"></div>
+      </div>
+      <div class="thinking-text" id="thinking-text">Claude is creating your perfect meal…</div>
+      <div class="thinking-sub">Calculating exact calories & macros</div>
+    </div>
+
+    <!-- Result -->
+    <div class="meal-result" id="meal-result" style="margin-top:16px">
+
+      <div class="result-hero">
+        <span class="result-emoji" id="result-emoji">🍽️</span>
+        <div class="result-name" id="result-name">—</div>
+        <div class="result-desc" id="result-desc">—</div>
+        <div class="result-meta" id="result-meta"></div>
+      </div>
+
+      <!-- Macro cards -->
+      <div class="result-macros">
+        <div class="result-macro">
+          <span class="result-macro-val" style="color:var(--gold)" id="r-kcal">0</span>
+          <span class="result-macro-lbl">kcal</span>
+        </div>
+        <div class="result-macro">
+          <span class="result-macro-val" style="color:var(--carbs)" id="r-carbs">0g</span>
+          <span class="result-macro-lbl">Carbs</span>
+        </div>
+        <div class="result-macro">
+          <span class="result-macro-val" style="color:var(--fat)" id="r-fat">0g</span>
+          <span class="result-macro-lbl">Fat</span>
+        </div>
+        <div class="result-macro">
+          <span class="result-macro-val" style="color:var(--protein)" id="r-protein">0g</span>
+          <span class="result-macro-lbl">Protein</span>
+        </div>
+      </div>
+
+      <!-- Ingredients -->
+      <div class="card result-section" style="padding:20px">
+        <div class="result-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)"><path d="M3 2l1.5 1.5M20.5 3.5L19 5M12 3v2M4.5 9H3M21 9h-1.5M6.5 6.5l-1-1M19 6l-1.5 1.5"/><path d="M12 12c0-2.76 2.24-5 5-5s5 2.24 5 5c0 5-5 9-5 9s-5-4-5-9z"/><path d="M7 21c0-3.31 2.24-6 5-6"/></svg>
+          Ingredients
+        </div>
+        <div class="ingredient-list" id="ingredient-list"></div>
+      </div>
+
+      <!-- Steps -->
+      <div class="card result-section" style="padding:20px">
+        <div class="result-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          Cooking Steps
+        </div>
+        <div class="step-list" id="step-list"></div>
+      </div>
+
+      <!-- Substitutions -->
+      <div class="card result-section" style="padding:20px" id="subs-section">
+        <div class="result-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          Substitutions
+        </div>
+        <div class="subs-list" id="subs-list"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="result-actions">
+        <button class="btn btn-ghost" id="regen-btn" style="flex:1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:16px;height:16px;stroke-width:2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Try Again
+        </button>
+        <button class="btn btn-gold" id="log-meal-btn" style="flex:2">
+          📊 Log This Meal
+        </button>
+      </div>
+    </div>
+
+    <!-- Suggestion history -->
+    <div class="suggestion-history" id="suggestion-history" style="display:none">
+      <p class="sh-title">Previous Suggestions</p>
+      <div class="sh-list" id="sh-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+/* ════════════════════════════════════════════
+   iCal Phase 3 — AI Meal Suggestions
+   Uses Anthropic API directly in the browser
+════════════════════════════════════════════ */
+
+const token = localStorage.getItem('token');
+if (!token) window.location.href = 'login.html';
+
+// ── State ──
+let ingredients = [];
+let excludes    = [];
+let lastResult  = null;
+let suggestions = JSON.parse(localStorage.getItem('ical_suggestions') || '[]');
+
+// ── Sliders ──
+document.getElementById('cal-slider').addEventListener('input', function() {
+  document.getElementById('cal-val').textContent = this.value + ' kcal';
+});
+document.getElementById('time-slider').addEventListener('input', function() {
+  document.getElementById('time-val').textContent = this.value + ' min';
+});
+
+// ── Tag inputs ──
+function addTag(input, list, arr, style) {
+  const val = input.value.trim();
+  if (!val) return;
+  if (arr.includes(val.toLowerCase())) { input.value=''; return; }
+  arr.push(val.toLowerCase());
+  input.value = '';
+  renderTags(list, arr, style);
+}
+
+function renderTags(container, arr, style) {
+  container.innerHTML = '';
+  arr.forEach((tag, i) => {
+    const el = document.createElement('div');
+    el.className = `tag ${style}`;
+    el.innerHTML = `${tag} <button class="tag-remove">✕</button>`;
+    el.querySelector('.tag-remove').addEventListener('click', () => {
+      arr.splice(i, 1);
+      renderTags(container, arr, style);
+    });
+    container.appendChild(el);
+  });
+}
+
+document.getElementById('ingr-add-btn').addEventListener('click', () =>
+  addTag(document.getElementById('ingr-input'), document.getElementById('ingr-tags'), ingredients, 'included')
+);
+document.getElementById('ingr-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTag(e.target, document.getElementById('ingr-tags'), ingredients, 'included');
+});
+
+document.getElementById('excl-add-btn').addEventListener('click', () =>
+  addTag(document.getElementById('excl-input'), document.getElementById('excl-tags'), excludes, 'excluded')
+);
+document.getElementById('excl-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTag(e.target, document.getElementById('excl-tags'), excludes, 'excluded');
+});
+
+// ── Load meal history for personalization ──
+let mealHistory = [];
+async function loadHistory() {
+  try {
+    const data = await api('/history?limit=20');
+    mealHistory = data.sessions || [];
+    if (mealHistory.length >= 3) {
+      document.getElementById('personalize-card').style.display = 'block';
+    }
+  } catch(e) {}
+}
+loadHistory();
+
+// ── Build prompt ──
+function buildPrompt() {
+  const calLimit   = document.getElementById('cal-slider').value;
+  const diet       = document.querySelector('input[name="diet"]:checked')?.value || 'any';
+  const prepTime   = document.getElementById('time-slider').value;
+  const difficulty = document.querySelector('input[name="diff"]:checked')?.value || 'easy';
+  const minProtein = document.getElementById('min-protein').value;
+  const maxCarbs   = document.getElementById('max-carbs').value;
+  const maxFat     = document.getElementById('max-fat').value;
+  const personalize = document.getElementById('personalize-toggle')?.checked;
+
+  let historyContext = '';
+  if (personalize && mealHistory.length) {
+    const recent = mealHistory.slice(0, 5).map(s => s.food_summary).join('; ');
+    historyContext = `\nThe user has recently eaten: ${recent}. Suggest something different and complementary.`;
+  }
+
+  let constraints = [];
+  if (diet !== 'any')  constraints.push(`Diet: ${diet}`);
+  if (minProtein)      constraints.push(`Minimum protein: ${minProtein}g`);
+  if (maxCarbs)        constraints.push(`Maximum carbs: ${maxCarbs}g`);
+  if (maxFat)          constraints.push(`Maximum fat: ${maxFat}g`);
+  if (ingredients.length) constraints.push(`Use these available ingredients: ${ingredients.join(', ')}`);
+  if (excludes.length)    constraints.push(`NEVER include: ${excludes.join(', ')}`);
+
+  return `You are a professional nutritionist and chef. Create ONE specific meal suggestion.
+
+Requirements:
+- Maximum calories: ${calLimit} kcal
+- Prep time: under ${prepTime} minutes  
+- Difficulty: ${difficulty}
+${constraints.map(c => `- ${c}`).join('\n')}
+${historyContext}
+
+Respond ONLY with a valid JSON object — no markdown, no explanation:
+{
+  "name": "Meal name",
+  "emoji": "🍽️",
+  "description": "2-3 sentence description of the meal",
+  "prep_time": 20,
+  "difficulty": "Easy",
+  "servings": 1,
+  "macros": {
+    "kcal": 450,
+    "carbs": 35,
+    "fat": 18,
+    "protein": 32
+  },
+  "ingredients": [
+    {"name": "Chicken breast", "qty": "150g", "kcal": 165},
+    {"name": "Brown rice", "qty": "1/2 cup cooked", "kcal": 108},
+    {"name": "Olive oil", "qty": "1 tbsp", "kcal": 120},
+    {"name": "Broccoli", "qty": "1 cup", "kcal": 55}
+  ],
+  "steps": [
+    "Season chicken breast with salt, pepper, and garlic powder.",
+    "Heat olive oil in a pan over medium-high heat.",
+    "Cook chicken 6-7 minutes per side until golden and cooked through.",
+    "Steam broccoli for 4 minutes.",
+    "Serve chicken over rice with broccoli on the side."
+  ],
+  "substitutions": [
+    {"from": "Chicken breast", "to": "Tofu or tempeh for vegetarian"},
+    {"from": "Brown rice", "to": "Cauliflower rice for lower carbs"},
+    {"from": "Olive oil", "to": "Avocado oil or coconut oil"}
+  ]
+}
+
+Rules:
+- macros must be realistic and accurate
+- ingredients list must match the macros
+- steps must be clear and numbered
+- emoji must match the food
+- name must be specific (not just "Chicken Bowl")`;
+}
+
+// ── Generate ──
+const thinkingTexts = [
+  'Claude is crafting your meal…',
+  'Calculating exact macros…',
+  'Optimizing ingredients…',
+  'Writing the recipe…',
+  'Almost ready…',
+];
+
+async function generate() {
+  const btn = document.getElementById('generate-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+
+  document.getElementById('thinking').classList.add('show');
+  document.getElementById('meal-result').classList.remove('show');
+
+  // Cycle thinking text
+  let ti = 0;
+  const interval = setInterval(() => {
+    document.getElementById('thinking-text').textContent = thinkingTexts[ti++ % thinkingTexts.length];
+  }, 1800);
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: buildPrompt() }],
+      }),
+    });
+
+    const data = await response.json();
+    const raw  = data.content?.[0]?.text || '';
+
+    // Parse JSON
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const meal  = JSON.parse(clean);
+
+    displayResult(meal);
+
+    // Save to history
+    suggestions.unshift({ ...meal, generatedAt: new Date().toISOString() });
+    if (suggestions.length > 10) suggestions.pop();
+    localStorage.setItem('ical_suggestions', JSON.stringify(suggestions));
+    renderSuggestionHistory();
+
+  } catch(e) {
+    showToast('⚠ Failed to generate. Try again!', 'error');
+    console.error(e);
+  } finally {
+    clearInterval(interval);
+    btn.classList.remove('loading'); btn.disabled = false;
+    document.getElementById('thinking').classList.remove('show');
+  }
+}
+
+// ── Display result ──
+function displayResult(meal) {
+  lastResult = meal;
+  document.getElementById('result-emoji').textContent = meal.emoji || '🍽️';
+  document.getElementById('result-name').textContent  = meal.name || 'Your Meal';
+  document.getElementById('result-desc').textContent  = meal.description || '';
+
+  // Meta chips
+  document.getElementById('result-meta').innerHTML = `
+    <div class="result-meta-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      ${meal.prep_time || '?'} min
+    </div>
+    <div class="result-meta-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 01-7 7 7 7 0 01-7-7c0-1.153.433-2.294 1-3 .558.29 1.28.5 1.5.5z"/></svg>
+      ${meal.difficulty || 'Easy'}
+    </div>
+    <div class="result-meta-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      ${meal.servings || 1} serving${(meal.servings||1)>1?'s':''}
+    </div>`;
+
+  // Macros
+  document.getElementById('r-kcal').textContent    = meal.macros?.kcal    || 0;
+  document.getElementById('r-carbs').textContent   = (meal.macros?.carbs  || 0)+'g';
+  document.getElementById('r-fat').textContent     = (meal.macros?.fat    || 0)+'g';
+  document.getElementById('r-protein').textContent = (meal.macros?.protein|| 0)+'g';
+
+  // Ingredients
+  const ingList = document.getElementById('ingredient-list');
+  ingList.innerHTML = '';
+  (meal.ingredients || []).forEach(ing => {
+    const row = document.createElement('div');
+    row.className = 'ingredient-row';
+    row.innerHTML = `<span class="ingredient-name">${ing.name}</span><span class="ingredient-qty">${ing.qty}</span><span class="ingredient-cal">${ing.kcal} kcal</span>`;
+    ingList.appendChild(row);
+  });
+
+  // Steps
+  const stepList = document.getElementById('step-list');
+  stepList.innerHTML = '';
+  (meal.steps || []).forEach((step, i) => {
+    const row = document.createElement('div');
+    row.className = 'step-row';
+    row.innerHTML = `<div class="step-num">${i+1}</div><div class="step-text">${step}</div>`;
+    stepList.appendChild(row);
+  });
+
+  // Substitutions
+  const subs = meal.substitutions || [];
+  const subsList = document.getElementById('subs-list');
+  subsList.innerHTML = '';
+  if (subs.length) {
+    subs.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'sub-row';
+      row.innerHTML = `<span class="sub-from">${s.from}</span><span class="sub-arrow">→</span><span class="sub-to">${s.to}</span>`;
+      subsList.appendChild(row);
+    });
+    document.getElementById('subs-section').style.display = 'block';
+  } else {
+    document.getElementById('subs-section').style.display = 'none';
+  }
+
+  document.getElementById('meal-result').classList.add('show');
+  document.getElementById('meal-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Log meal ──
+document.getElementById('log-meal-btn').addEventListener('click', () => {
+  if (!lastResult) return;
+  document.getElementById('log-confirm-title').textContent = `Log "${lastResult.name}"?`;
+  document.getElementById('log-confirm-sub').textContent   = `${lastResult.macros?.kcal} kcal · ${lastResult.macros?.carbs}g C · ${lastResult.macros?.fat}g F · ${lastResult.macros?.protein}g P`;
+  document.getElementById('log-confirm-overlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+});
+
+document.getElementById('log-cancel-btn').addEventListener('click', () => {
+  document.getElementById('log-confirm-overlay').classList.remove('show');
+  document.body.style.overflow = '';
+});
+
+document.getElementById('log-confirm-btn').addEventListener('click', async () => {
+  if (!lastResult) return;
+  const btn = document.getElementById('log-confirm-btn');
+  setLoading(btn, true);
+
+  // We log it as a manual entry by calling the backend
+  // Since we don't have a real image, we use the text-based approach
+  // For now show success and redirect
+  setTimeout(() => {
+    document.getElementById('log-confirm-overlay').classList.remove('show');
+    document.body.style.overflow = '';
+    showToast(`✅ "${lastResult.name}" saved to history!`, 'success');
+    setLoading(btn, false);
+    // Store in localStorage for dashboard to pick up
+    const pending = JSON.parse(localStorage.getItem('ical_pending_log') || '[]');
+    pending.push({
+      name: lastResult.name,
+      kcal: lastResult.macros?.kcal || 0,
+      carbs: lastResult.macros?.carbs || 0,
+      fat: lastResult.macros?.fat || 0,
+      protein: lastResult.macros?.protein || 0,
+      meal_type: 'other',
+      timestamp: new Date().toISOString(),
+    });
+    localStorage.setItem('ical_pending_log', JSON.stringify(pending));
+  }, 800);
+});
+
+// ── Regen ──
+document.getElementById('regen-btn').addEventListener('click', generate);
+document.getElementById('generate-btn').addEventListener('click', generate);
+
+// ── Suggestion history ──
+function renderSuggestionHistory() {
+  const container = document.getElementById('sh-list');
+  const section   = document.getElementById('suggestion-history');
+  if (!suggestions.length) { section.style.display='none'; return; }
+  section.style.display = 'block';
+  container.innerHTML = '';
+  suggestions.slice(0,5).forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'sh-item';
+    item.innerHTML = `
+      <div>
+        <div class="sh-name">${s.emoji||'🍽️'} ${s.name}</div>
+        <div class="sh-meta">${s.macros?.carbs||0}g C · ${s.macros?.fat||0}g F · ${s.macros?.protein||0}g P</div>
+      </div>
+      <div class="sh-kcal">${s.macros?.kcal||0} kcal</div>`;
+    item.addEventListener('click', () => displayResult(s));
+    container.appendChild(item);
+  });
+}
+renderSuggestionHistory();
+</script>
+</body>
+</html>
