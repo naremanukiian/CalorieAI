@@ -182,36 +182,63 @@ def get_profile_posts(user_id: int, current_user: dict = Depends(get_current_use
 
 
 @router.get("/posts/explore")
-def get_explore(limit: int = 30, offset: int = 0,
-                min_cal: int = 0, max_cal: int = 9999,
-                meal_type: str = "", search: str = "",
-                current_user: dict = Depends(get_current_user)):
+def get_explore(
+    limit:     int = 30,
+    offset:    int = 0,
+    min_cal:   int = 0,
+    max_cal:   int = 9999,
+    meal_type: str = "",
+    search:    str = "",
+    current_user: dict = Depends(get_current_user)
+):
     user_id = int(current_user["sub"])
+
+    where  = ["p.privacy = 'public'"]
+    params = {}
+
+    where.append("p.total_calories >= %(min_cal)s")
+    params["min_cal"] = min_cal
+
+    where.append("p.total_calories <= %(max_cal)s")
+    params["max_cal"] = max_cal
+
+    if meal_type and meal_type.strip():
+        where.append("p.meal_type = %(meal_type)s")
+        params["meal_type"] = meal_type.strip()
+
+    if search and search.strip():
+        where.append("(p.food_summary ILIKE %(search)s OR p.caption ILIKE %(search)s)")
+        params["search"] = f"%{search.strip()}%"
+
+    params["user_id"] = user_id
+    params["limit"]   = limit
+    params["offset"]  = offset
+
+    sql = f"""
+        SELECT p.*, u.email AS author_email,
+               EXISTS(SELECT 1 FROM likes l WHERE l.post_id=p.id AND l.user_id=%(user_id)s) AS liked,
+               EXISTS(SELECT 1 FROM saves s WHERE s.post_id=p.id AND s.user_id=%(user_id)s) AS saved,
+               (SELECT COUNT(*) FROM likes WHERE post_id=p.id) AS like_count
+        FROM posts p
+        JOIN users u ON u.id = p.user_id
+        WHERE {' AND '.join(where)}
+        ORDER BY like_count DESC, p.created_at DESC
+        LIMIT %(limit)s OFFSET %(offset)s
+    """
+
     with get_db() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            filters = ["p.privacy='public'",
-                       "p.total_calories >= %s", "p.total_calories <= %s"]
-            params  = [min_cal, max_cal]
-            if meal_type:
-                filters.append("p.meal_type = %s")
-                params.append(meal_type)
-            if search:
-                filters.append("(p.food_summary ILIKE %s OR p.caption ILIKE %s)")
-                params += [f"%{search}%", f"%{search}%"]
-            params += [user_id, user_id, limit, offset]
-            cur.execute(f"""
-                SELECT p.*, u.email as author_email,
-                       EXISTS(SELECT 1 FROM likes l WHERE l.post_id=p.id AND l.user_id=%s) as liked,
-                       EXISTS(SELECT 1 FROM saves s WHERE s.post_id=p.id AND s.user_id=%s) as saved,
-                       (SELECT COUNT(*) FROM likes WHERE post_id=p.id) as like_count
-                FROM posts p JOIN users u ON u.id = p.user_id
-                WHERE {' AND '.join(filters)}
-                ORDER BY like_count DESC, p.created_at DESC
-                LIMIT %s OFFSET %s
-            """, params)
+            cur.execute(sql, params)
             posts = [dict(r) for r in cur.fetchall()]
+
     for p in posts:
-        if p.get("created_at"): p["created_at"] = p["created_at"].isoformat()
+        if p.get("created_at"):
+            p["created_at"] = p["created_at"].isoformat()
+        p["total_carbs"]   = float(p.get("total_carbs", 0))
+        p["total_fat"]     = float(p.get("total_fat", 0))
+        p["total_protein"] = float(p.get("total_protein", 0))
+        p["like_count"]    = int(p.get("like_count", 0))
+
     return {"posts": posts, "count": len(posts)}
 
 
