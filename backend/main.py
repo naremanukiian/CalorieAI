@@ -261,3 +261,33 @@ async def not_found(req, exc):
 @app.exception_handler(500)
 async def server_error(req, exc):
     return JSONResponse(status_code=500, content={"detail":"Server error. Please try again."})
+
+
+# ── AI Meal Suggestion ──────────────────────────────
+
+@app.post("/suggest")
+async def suggest_meal(body: dict, current_user: dict = Depends(get_current_user)):
+    import httpx
+    prompt = body.get("prompt", "")
+    if not prompt:
+        raise HTTPException(400, "Prompt is required.")
+
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    if not api_key:
+        raise HTTPException(500, "OpenAI API key not configured on server.")
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": "gpt-4o",
+                "max_tokens": 1000,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+    if resp.status_code != 200:
+        raise HTTPException(502, f"OpenAI error: {resp.text[:200]}")
+
+    result = resp.json()["choices"][0]["message"]["content"]
+    return {"result": result}
