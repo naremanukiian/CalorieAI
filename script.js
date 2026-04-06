@@ -1,14 +1,21 @@
 /* iCal v2 — Shared Utilities */
 const API_BASE = 'https://calorie-ai-backend-dyko.onrender.com';
 
-async function api(path, method = 'GET', body = null) {
+async function api(path, method = 'GET', body = null, _retry = true) {
   const token = localStorage.getItem('token');
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
   if (token) headers['Authorization'] = `Bearer ${token}`;
   let res;
-  try { res = await fetch(API_BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined }); }
-  catch { throw new Error('Cannot reach the server. Make sure the backend is running.'); }
+  try {
+    res = await fetch(API_BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  } catch {
+    if (_retry) {
+      await new Promise(r => setTimeout(r, 3000));
+      return api(path, method, body, false);
+    }
+    throw new Error('Server is starting up… wait 30 seconds and try again.');
+  }
   if (res.status === 401) { localStorage.clear(); window.location.href = 'login.html'; return; }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || data.message || `Error ${res.status}`);

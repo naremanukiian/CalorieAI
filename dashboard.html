@@ -533,7 +533,7 @@ function switchPage(name) {
   if (name==='analytics') buildAnalyticsPage();
   if (name==='profile')   buildProfilePage();
   if (name==='feed')      loadFeed();
-  if (name==='explore')   loadExplore();
+  if (name==='explore')   { loadExplore(); }
 }
 document.querySelectorAll('.nav-item[data-page]').forEach(el =>
   el.addEventListener('click', () => switchPage(el.dataset.page))
@@ -859,24 +859,52 @@ async function loadFeed() {
 
 // ══ EXPLORE ══
 async function loadExplore(filter, search) {
-  const grid=document.getElementById('explore-grid');
-  grid.innerHTML='<div style="text-align:center;padding:32px;color:var(--txt3)">Loading…</div>';
-  let url='/posts/explore?limit=30';
-  if (filter==='low-cal')           url+='&max_cal=400';
-  else if (filter==='high-protein') url+='&min_cal=0';
-  else if (filter && !['low-cal','high-protein'].includes(filter)) url+=`&meal_type=${filter}`;
-  if (search) url+=`&search=${encodeURIComponent(search)}`;
+  const grid = document.getElementById('explore-grid');
+  grid.innerHTML = `
+    <div style="text-align:center;padding:40px 20px;color:var(--txt2)">
+      <div style="width:40px;height:40px;border:3px solid rgba(245,200,66,.15);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 14px"></div>
+      <div style="font-size:.86rem;font-weight:600">Loading posts…</div>
+      <div style="font-size:.74rem;color:var(--txt3);margin-top:4px">Starting up server if needed</div>
+    </div>`;
+
+  let url = '/posts/explore?limit=30';
+  if (filter === 'low-cal')           url += '&max_cal=400';
+  else if (filter === 'high-protein') url += '&min_cal=0';
+  else if (filter && !['low-cal','high-protein'].includes(filter)) url += `&meal_type=${filter}`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+
   try {
-    const data=await api(url);
+    const data = await api(url);
     if (!data.posts?.length) {
-      grid.innerHTML='<div style="text-align:center;padding:48px 20px;color:var(--txt3)"><div style="font-size:3rem;margin-bottom:12px">🍽️</div><div style="font-weight:700;margin-bottom:6px">No meals found</div><div style="font-size:.84rem">Be the first to share a meal!</div></div>';
+      grid.innerHTML = `
+        <div style="text-align:center;padding:56px 20px">
+          <div style="font-size:3rem;margin-bottom:14px">🍽️</div>
+          <div style="font-family:var(--font-d);font-size:1.1rem;font-weight:700;margin-bottom:8px">No public meals yet</div>
+          <div style="font-size:.84rem;color:var(--txt2);line-height:1.6;margin-bottom:20px">
+            Be the first! Log a meal on the Home tab,<br>then tap <strong style="color:var(--gold)">Share to Profile</strong> to post it here.
+          </div>
+          <button class="btn btn-gold" onclick="switchPage('home')">Log a Meal →</button>
+        </div>`;
       return;
     }
-    grid.innerHTML='';
-    let posts=data.posts;
-    if (filter==='high-protein') posts=posts.sort((a,b)=>b.total_protein-a.total_protein);
+    grid.innerHTML = '';
+    let posts = data.posts;
+    if (filter === 'high-protein') posts = posts.sort((a, b) => b.total_protein - a.total_protein);
     posts.forEach(p => grid.appendChild(buildPostCard(p)));
-  } catch(e) { grid.innerHTML=`<div style="text-align:center;padding:32px;color:var(--red)">${e.message}</div>`; }
+  } catch(e) {
+    grid.innerHTML = `
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:2.5rem;margin-bottom:12px">⚠️</div>
+        <div style="font-family:var(--font-d);font-size:1rem;font-weight:700;margin-bottom:8px;color:var(--txt)">Server is waking up</div>
+        <div style="font-size:.82rem;color:var(--txt2);margin-bottom:20px;line-height:1.6">
+          Render's free tier sleeps after inactivity.<br>Usually takes 30–60 seconds to wake up.
+        </div>
+        <button class="btn btn-ghost" onclick="loadExplore('${filter||''}','${search||''}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:16px;height:16px;stroke-width:2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Retry
+        </button>
+      </div>`;
+  }
 }
 
 // Filter chips
@@ -1001,6 +1029,15 @@ async function loadHistory() {
 }
 
 // ── Init ──
+// Wake up Render backend (free tier sleeps after inactivity)
+async function wakeUpBackend() {
+  try {
+    await fetch(API_BASE + '/health', { method: 'GET' });
+  } catch(e) {
+    // silently retry — api() handles retries
+  }
+}
+wakeUpBackend();
 updateRing();
 loadHistory();
 </script>
